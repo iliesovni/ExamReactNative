@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Book } from '../models/Book';
+import StarRating from './StarRating';
 
 interface Props {
   book: Book;
@@ -15,6 +16,10 @@ export default function BookItem({ book, onPress, onEdit, onDelete }: Props) {
       <View style={styles.left}>
         <Text style={styles.title}>{book.name}</Text>
         <Text style={styles.subtitle}>{book.author}</Text>
+        <View style={styles.ratingContainer}>
+          <StarRating rating={book.rating || 0} size={16} />
+          {(book.rating || 0) > 0 && <Text style={styles.ratingText}>{book.rating}/5</Text>}
+        </View>
         <Text
           style={[
             styles.readStatus,
@@ -60,6 +65,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 3,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '500',
   },
   readStatus: {
     fontSize: 13,

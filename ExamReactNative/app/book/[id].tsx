@@ -1,16 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Easing,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import StarRating from '../../components/StarRating';
 import { Book } from '../../models/Book';
 import api from '../../services/api';
 
@@ -21,6 +22,7 @@ export default function BookDetail() {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [updatingRating, setUpdatingRating] = useState(false);
 
   const tiltAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -77,6 +79,20 @@ export default function BookDetail() {
       Alert.alert('Erreur', "Impossible de mettre à jour le statut.");
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleRatingChange = async (newRating: number) => {
+    if (!book || typeof book.id !== 'number') return;
+    try {
+      setUpdatingRating(true);
+      await api.updateBook(book.id, { ...book, rating: newRating });
+      setBook({ ...book, rating: newRating });
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Erreur', "Impossible de mettre à jour la note.");
+    } finally {
+      setUpdatingRating(false);
     }
   };
 
@@ -148,6 +164,20 @@ export default function BookDetail() {
           <Text style={[styles.statusText, book.read ? styles.read : styles.unread]}>
             {book.read ? 'Lu' : 'Non lu'}
           </Text>
+        </View>
+
+        <View style={styles.ratingSection}>
+          <Text style={styles.ratingLabel}>Note</Text>
+          <View style={styles.ratingWrapper}>
+            <StarRating
+              rating={book.rating || 0}
+              onRatingChange={handleRatingChange}
+              size={32}
+            />
+            {(book.rating || 0) > 0 && (
+              <Text style={styles.ratingValue}>{book.rating}/5</Text>
+            )}
+          </View>
         </View>
 
         <TouchableOpacity
@@ -266,6 +296,28 @@ const styles = StyleSheet.create({
   },
   unread: {
     color: '#ff453a',
+  },
+  ratingSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  ratingLabel: {
+    fontSize: 14,
+    color: '#888',
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  ratingWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  ratingValue: {
+    fontSize: 18,
+    color: '#1a1a1a',
+    fontWeight: '700',
   },
   toggleBtn: {
     backgroundColor: '#0A84FF',
