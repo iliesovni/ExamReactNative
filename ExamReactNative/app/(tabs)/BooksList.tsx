@@ -1,4 +1,3 @@
-// app/(tabs)/BooksList.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ActionSuccessPopup from '../../components/ActionSuccessPopup';
 import BookItem from '../../components/BookItem';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { Book } from '../../models/Book';
@@ -24,6 +24,9 @@ export default function BooksList() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'read' | 'unread' | 'favorite'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'author' | 'theme'>('name');
+  
+  const [successPopup, setSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -45,22 +48,18 @@ export default function BooksList() {
 
   const filteredBooks = useMemo(() => {
     let result = [...books];
-
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
         b => b.name.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)
       );
     }
-
     if (filter === 'read') result = result.filter(b => b.read);
     if (filter === 'unread') result = result.filter(b => !b.read);
     if (filter === 'favorite') result = result.filter(b => b.favorite);
-
     result.sort((a, b) => {
       let valA = '';
       let valB = '';
-
       if (sortBy === 'name') {
         valA = a.name;
         valB = b.name;
@@ -71,10 +70,8 @@ export default function BooksList() {
         valA = a.theme || '';
         valB = b.theme || '';
       }
-
       return valA.localeCompare(valB);
     });
-
     return result;
   }, [books, search, filter, sortBy]);
 
@@ -84,6 +81,8 @@ export default function BooksList() {
     try {
       await api.deleteBook(deleteDialog.id);
       setBooks(prev => prev.filter(b => b.id !== deleteDialog.id));
+      setSuccessMessage('Livre supprimé avec succès !');
+      setSuccessPopup(true);
     } catch (err) {
       console.error(err);
     } finally {
@@ -97,7 +96,6 @@ export default function BooksList() {
       <View style={styles.header}>
         <Text style={styles.title}>Ma Bibliothèque</Text>
       </View>
-
       <View style={styles.controls}>
         <TextInput
           style={styles.search}
@@ -105,7 +103,6 @@ export default function BooksList() {
           value={search}
           onChangeText={setSearch}
         />
-
         <View style={styles.filterRow}>
           {(['all', 'read', 'unread', 'favorite'] as const).map(f => (
             <TouchableOpacity
@@ -119,7 +116,6 @@ export default function BooksList() {
             </TouchableOpacity>
           ))}
         </View>
-
         <View style={styles.sortRow}>
           <Text style={styles.sortLabel}>Trier :</Text>
           {(['name', 'author', 'theme'] as const).map(s => (
@@ -177,6 +173,12 @@ export default function BooksList() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteDialog(null)}
         loading={deleting}
+      />
+
+      <ActionSuccessPopup
+        visible={successPopup}
+        message={successMessage}
+        onHide={() => setSuccessPopup(false)}
       />
     </View>
   );
