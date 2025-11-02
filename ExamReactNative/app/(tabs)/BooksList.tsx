@@ -1,13 +1,12 @@
 // app/(tabs)/BooksList.tsx
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,10 +21,9 @@ export default function BooksList() {
   const [loading, setLoading] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<{ id: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(-30)).current;
-  const fabScale = useRef(new Animated.Value(1)).current;
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<'all' | 'read' | 'unread' | 'favorite'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'author' | 'theme'>('name');
 
   const fetchBooks = useCallback(async () => {
     try {
@@ -42,35 +40,50 @@ export default function BooksList() {
   useFocusEffect(
     useCallback(() => {
       fetchBooks();
-      return () => {};
     }, [fetchBooks])
   );
 
-  useEffect(() => {
-    if (!loading) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          friction: 8,
-          tension: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
+  const filteredBooks = useMemo(() => {
+    let result = [...books];
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        b => b.name.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)
+      );
     }
-  }, [loading]);
+
+    if (filter === 'read') result = result.filter(b => b.read);
+    if (filter === 'unread') result = result.filter(b => !b.read);
+    if (filter === 'favorite') result = result.filter(b => b.favorite);
+
+    result.sort((a, b) => {
+      let valA = '';
+      let valB = '';
+
+      if (sortBy === 'name') {
+        valA = a.name;
+        valB = b.name;
+      } else if (sortBy === 'author') {
+        valA = a.author;
+        valB = b.author;
+      } else if (sortBy === 'theme') {
+        valA = a.theme || '';
+        valB = b.theme || '';
+      }
+
+      return valA.localeCompare(valB);
+    });
+
+    return result;
+  }, [books, search, filter, sortBy]);
 
   const handleDelete = async () => {
     if (!deleteDialog) return;
     setDeleting(true);
     try {
       await api.deleteBook(deleteDialog.id);
-      setBooks((prev) => prev.filter((b) => b.id !== deleteDialog.id));
+      setBooks(prev => prev.filter(b => b.id !== deleteDialog.id));
     } catch (err) {
       console.error(err);
     } finally {
@@ -79,91 +92,85 @@ export default function BooksList() {
     }
   };
 
-  const animatePress = (scaleRef: Animated.Value, toValue: number) => {
-    Animated.spring(scaleRef, {
-      toValue,
-      friction: 8,
-      tension: 200,
-      useNativeDriver: true,
-    }).start();
-  };
-
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.header,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
+      <View style={styles.header}>
         <Text style={styles.title}>Ma Bibliothèque</Text>
-        <Text style={styles.subtitle}>Gère tes livres avec style</Text>
-      </Animated.View>
+      </View>
+
+      <View style={styles.controls}>
+        <TextInput
+          style={styles.search}
+          placeholder="Rechercher..."
+          value={search}
+          onChangeText={setSearch}
+        />
+
+        <View style={styles.filterRow}>
+          {(['all', 'read', 'unread', 'favorite'] as const).map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterBtn, filter === f && styles.filterBtnActive]}
+              onPress={() => setFilter(f)}
+            >
+              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+                {f === 'all' ? 'Tous' : f === 'read' ? 'Lus' : f === 'unread' ? 'Non lus' : 'Favoris'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.sortRow}>
+          <Text style={styles.sortLabel}>Trier :</Text>
+          {(['name', 'author', 'theme'] as const).map(s => (
+            <TouchableOpacity
+              key={s}
+              style={[styles.sortBtn, sortBy === s && styles.sortBtnActive]}
+              onPress={() => setSortBy(s)}
+            >
+              <Text style={[styles.sortText, sortBy === s && styles.sortTextActive]}>
+                {s === 'name' ? 'Titre' : s === 'author' ? 'Auteur' : 'Thème'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
 
       {loading ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color="#0A84FF" />
-          <Text style={styles.loadingText}>Chargement des livres...</Text>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#007AFF" />
         </View>
       ) : (
         <FlatList
-          data={books}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
+          data={filteredBooks}
+          keyExtractor={item => String(item.id)}
+          contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <Animated.View
-              style={{
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              }}
-            >
-              <BookItem
-                book={item}
-                onPress={() => {
-                  if (!item.id) return;
-                  router.push({ pathname: '/book/[id]', params: { id: String(item.id) } });
-                }}
-                onEdit={() => router.push(`/(tabs)/BookFormModal?mode=edit&bookId=${item.id}`)}
-                onDelete={() => setDeleteDialog({ id: item.id! })}
-              />
-            </Animated.View>
+            <BookItem
+              book={item}
+              onPress={() => router.push(`/book/${item.id}`)}
+              onEdit={() => router.push(`/(tabs)/BookFormModal?mode=edit&bookId=${item.id}`)}
+              onDelete={() => setDeleteDialog({ id: item.id! })}
+            />
           )}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyEmoji}>Empty book</Text>
-              <Text style={styles.emptyTitle}>Aucun livre</Text>
-              <Text style={styles.emptyText}>Ajoute ton premier chef-d'œuvre !</Text>
+            <View style={styles.center}>
+              <Text style={styles.empty}>Aucun livre</Text>
             </View>
           }
         />
       )}
 
-      <Animated.View
-        style={[
-          styles.fabContainer,
-          {
-            transform: [{ scale: fabScale }],
-          },
-        ]}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/(tabs)/BookFormModal?mode=add')}
       >
-        <TouchableOpacity
-          style={styles.fab}
-          onPressIn={() => animatePress(fabScale, 0.93)}
-          onPressOut={() => animatePress(fabScale, 1)}
-          onPress={() => router.push('/(tabs)/BookFormModal?mode=add')}
-          activeOpacity={1}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      </Animated.View>
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
 
       <ConfirmDialog
         visible={!!deleteDialog}
-        title="Supprimer ce livre ?"
+        title="Supprimer ?"
         message="Cette action est irréversible."
         confirmText="Supprimer"
         cancelText="Annuler"
@@ -176,92 +183,56 @@ export default function BooksList() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f9fc',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: '#1c1c1e',
-    letterSpacing: -0.8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#666',
-    marginTop: 6,
-    fontWeight: '500',
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
+  container: { flex: 1, backgroundColor: '#f9f9fb' },
+  header: { padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#eee' },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#1c1c1e' },
+  controls: { padding: 16, backgroundColor: '#fff', marginBottom: 8 },
+  search: {
+    backgroundColor: '#f1f1f6',
+    padding: 12,
+    borderRadius: 12,
     fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
+    marginBottom: 12,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 80,
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  filterBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#f1f1f6',
+    borderRadius: 20,
   },
-  emptyEmoji: {
-    fontSize: 68,
-    marginBottom: 16,
+  filterBtnActive: { backgroundColor: '#007AFF' },
+  filterText: { fontSize: 13, fontWeight: '600', color: '#555' },
+  filterTextActive: { color: '#fff' },
+  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sortLabel: { fontSize: 14, color: '#666', fontWeight: '600' },
+  sortBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f1f1f6',
+    borderRadius: 16,
   },
-  emptyTitle: {
-    fontSize: 23,
-    fontWeight: '700',
-    color: '#1c1c1e',
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    maxWidth: '80%',
-  },
-  fabContainer: {
+  sortBtnActive: { backgroundColor: '#007AFF' },
+  sortText: { fontSize: 13, fontWeight: '600', color: '#555' },
+  sortTextActive: { color: '#fff' },
+  list: { padding: 16 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  empty: { fontSize: 18, color: '#888' },
+  fab: {
     position: 'absolute',
     right: 20,
     bottom: 30,
-  },
-  fab: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    backgroundColor: '#0A84FF',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#0A84FF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
-    elevation: 14,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
-  fabText: {
-    fontSize: 34,
-    color: '#fff',
-    fontWeight: '300',
-    lineHeight: 38,
-  },
+  fabText: { color: '#fff', fontSize: 32, fontWeight: '300' },
 });

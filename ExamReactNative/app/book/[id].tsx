@@ -1,15 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Easing,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import StarRating from '../../components/StarRating';
 import { Book } from '../../models/Book';
@@ -23,9 +23,10 @@ export default function BookDetail() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [updatingRating, setUpdatingRating] = useState(false);
-
+  const [togglingFavorite, setTogglingFavorite] = useState(false);
   const tiltAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const load = useCallback(async () => {
     if (typeof bookId !== 'number' || Number.isNaN(bookId)) return;
@@ -82,6 +83,26 @@ export default function BookDetail() {
     }
   };
 
+  const toggleFavorite = async () => {
+    if (!book || typeof book.id !== 'number') return;
+    try {
+      setTogglingFavorite(true);
+      const next = !book.favorite;
+      await api.updateBook(book.id, { ...book, favorite: next });
+      setBook({ ...book, favorite: next });
+
+      Animated.sequence([
+        Animated.timing(scaleAnim, { toValue: 1.4, duration: 150, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+      ]).start();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Erreur', "Impossible de mettre à jour le favori.");
+    } finally {
+      setTogglingFavorite(false);
+    }
+  };
+
   const handleRatingChange = async (newRating: number) => {
     if (!book || typeof book.id !== 'number') return;
     try {
@@ -116,6 +137,10 @@ export default function BookDetail() {
       </View>
     );
   }
+
+  const favoriteIcon = book.favorite
+    ? require('../../assets/images/favorite.png')
+    : require('../../assets/images/NotFavorite.png');
 
   return (
     <View style={styles.container}>
@@ -195,6 +220,23 @@ export default function BookDetail() {
           <Text style={styles.backTxt}>Retour</Text>
         </TouchableOpacity>
       </Animated.View>
+
+      <TouchableOpacity
+        style={styles.favoriteBtn}
+        onPress={toggleFavorite}
+        disabled={togglingFavorite}
+        activeOpacity={0.7}
+      >
+        <Animated.Image
+          source={favoriteIcon}
+          style={[
+            styles.favoriteIcon,
+            {
+              transform: [{ scale: scaleAnim }],
+            },
+          ]}
+        />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -353,5 +395,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#888',
     marginTop: 40,
+  },
+  favoriteBtn: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    zIndex: 10,
+  },
+  favoriteIcon: {
+    width: 36,
+    height: 36,
   },
 });

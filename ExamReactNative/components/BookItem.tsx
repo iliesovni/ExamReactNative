@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Book } from '../models/Book';
 import StarRating from './StarRating';
 
@@ -11,8 +11,13 @@ interface Props {
 }
 
 export default function BookItem({ book, onPress, onEdit, onDelete }: Props) {
+  const favoriteIcon = book.favorite
+    ? require('../assets/images/favorite.png')
+    : require('../assets/images/NotFavorite.png');
+
   return (
     <TouchableOpacity style={styles.container} onPress={onPress}>
+      <Image source={favoriteIcon} style={styles.favoriteIcon} />
       <View style={styles.left}>
         <Text style={styles.title}>{book.name}</Text>
         <Text style={styles.subtitle}>{book.author}</Text>
@@ -31,10 +36,10 @@ export default function BookItem({ book, onPress, onEdit, onDelete }: Props) {
       </View>
       <View style={styles.actions}>
         <TouchableOpacity onPress={onEdit} style={styles.actionBtn}>
-          <Text>Edit</Text>
+          <Text style={styles.actionText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} style={styles.actionBtn}>
-          <Text>Delete</Text>
+          <Text style={styles.actionText}>Delete</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -54,6 +59,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+    position: 'relative',
   },
   left: { flex: 1 },
   title: {
@@ -103,5 +109,18 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#f2f2f7',
     borderRadius: 8,
+  },
+  actionText: {
+    fontSize: 12,
+    color: '#0A84FF',
+    fontWeight: '600',
+  },
+  favoriteIcon: {
+    width: 24,
+    height: 24,
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
   },
 });
