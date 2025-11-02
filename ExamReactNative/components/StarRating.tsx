@@ -2,8 +2,8 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
-  rating: number; // 0 à 5
-  onRatingChange?: (rating: number) => void; // Si défini, mode interactif
+  rating: number;
+  onRatingChange?: (rating: number) => void;
   size?: number;
 }
 

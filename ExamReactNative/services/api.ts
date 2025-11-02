@@ -1,4 +1,3 @@
-// services/api.ts
 import { Book, Note } from '../models/Book';
 
 const API_URL = 'http://localhost:3000/books';
